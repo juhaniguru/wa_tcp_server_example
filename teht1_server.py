@@ -3,6 +3,10 @@ import threading
 
 import select
 
+def render(_template):
+    with open(_template, 'r', encoding='utf-8') as f:
+        return f.read()
+
 
 def handle_client(client_socket):
     try:
@@ -123,81 +127,25 @@ def handle_request(method, path, headers, request):
         "HTTP/1.1 404 NOT FOUND",
         "Content-Type: text/html"
     ]
-    response_body = None
+    response = None
     # jos method on GET, mennään tänne
     if method == "GET":
         # jos path on / tulostetaan HTTP-protokollan mukainen vastaus
-        if path == "/":
+        # TEHTÄVÄ 1: KORJAA ROUTE NIIN, ETTÄ KYSELYSTÄ EI TULE VIRHETTÄ,
+        # JA users_list.html-sivun lista näkyy selainikkunassa
+        if path == "/users":
             response_headers = [
                 "HTTP/1.1 200 OK",
-                "Content-Type: text/html"
+                "Content-Type: text/html; charset=utf-8",
+
             ]
-            response_body = f"<html><body><h1>Hello, World!</h1></body></html>"
+            response_body = f"{render('./templates/users_list.html')}"
+            response = "\r\n".join(response_headers) + "\r\n\r\n" + response_body
 
-
-
-    # jos method on POST, tullaan tänne
-
-    elif method == "POST":
-
-        # jos path on /submit
-        if path == "/submit":
-            # tarkistetaan Content-Type-header
-            content_type = headers.get("Content-Type")
-            # requestin content-type-headerin arvona application/x-www-form-urlencoded
-            # mahdollistaa tekstin lähettämisen formilla serverille
-            if content_type == "application/x-www-form-urlencoded":
-
-                try:
-                    form_data = {}
-                    # \r\n on ns. CRLF (Carriage return line feed)
-                    # HTTP-protokollassa tämä tarkoittaa rivinvaihtoa (uutta riviä)
-                    # muista, että http-pyyntö (sekä request että response)
-                    # on tällainen
-
-                    """
-                     GET / HTTP/1.1 (Start Line)
-                     Accept: text/html (Headereita voi olla useita)
-                     Content-Type: x-www-form-urlencoded
-                                       (Blank line, joka erottaa headerit bodysta)
-                     first_name=jorma (Body)
-
-                     """
-                    # kun reqeust hajoitetaan kahdesta rivinvaihdosta
-                    # se tarkoittaa, että [0] indeksissä on start line ja headerit
-                    # [1] indeksissä on  body
-                    body = request.split("\r\n\r\n", 1)[1]  # Get body
-                    for pair in body.split('&'):
-                        key, value = pair.split('=')
-                        form_data[key] = value
-                    response_headers = [
-                        "HTTP/1.1 200 OK",
-                        "Content-Type: text/html"
-                    ]
-                    response_body = f"<html><body><h1>Form Submitted! {form_data}</h1></body></html>"
-
-
-
-                except Exception:
-                    # jos requestissa tapahtuu jokin virhe,
-                    # yleensä palvelin lähettää vastauksen http status coden 400, joka tarkoittaa Bad Requestia
-                    response_headers = ["HTTP/1.1 400 Bad Request", "Content-Type: text/html"]
-                    response_body = "<html><body><h1>Bad Request</h1></body></html>"
-
-            # tänne tullaan, jos path on /submit ja metodi on POST
-            # mutta content-type ei ole x-www-form-urlencoded
-            if response_body is None:
-                response_headers = [
-                    "HTTP/1.1 200 OK",
-                    "Content-Type: text/html"
-                ]
-                response_body = "<html><body><h1>Form Submitted!</h1></body></html>"
-            # response = "\r\n".join(response_headers) +  "\r\n\r\n" + response_body
-
-    if response_body is None:
-        response_body = "<html><body><h1>404 Not Found</h1></body></html>"
-
-    response = "\r\n".join(response_headers) + "\r\n\r\n" + response_body
+    if response is None:
+        response_body = f"<html><body>Page not found</body></html>"
+        response = "\r\n".join(response_headers) + "\r\n\r\n" +  response_body
+    print("########## response:", response)
     return response
 
 
