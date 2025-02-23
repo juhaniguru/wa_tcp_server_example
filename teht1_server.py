@@ -130,8 +130,9 @@ def handle_request(method, path, headers, request):
     response = None
     # jos method on GET, mennään tänne
     if method == "GET":
+        print("######## jorma")
         # jos path on / tulostetaan HTTP-protokollan mukainen vastaus
-        # TEHTÄVÄ 1: KORJAA ROUTE NIIN, ETTÄ KYSELYSTÄ EI TULE VIRHETTÄ,
+        # TEHTÄVÄ 1: KORJAA KOODI NIIN, ETTÄ KYSELYSTÄ EI TULE VIRHETTÄ,
         # JA users_list.html-sivun lista näkyy selainikkunassa
         if path == "/users":
             response_headers = [
@@ -141,6 +142,8 @@ def handle_request(method, path, headers, request):
             ]
             response_body = f"{render('./templates/users_list.html')}"
             response = "\r\n".join(response_headers) + "\r\n\r\n" + response_body
+        elif path == "/posts":
+            pass
 
     if response is None:
         response_body = f"<html><body>Page not found</body></html>"
