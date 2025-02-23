@@ -1,104 +1,67 @@
 import re
 
-class TemplateEngine:
-    def __init__(self):
-        self.tags = {
-            "for": re.compile(r"\{% for (\w+) in (\w+) %\}"),
-            "endfor": re.compile(r"\{% endfor %\}"),
-            "if": re.compile(r"\{% if (.+) %\}"),  # Basic if condition
-            "endif": re.compile(r"\{% endif %\}"),
-            "variable": re.compile(r"\{\{ (\w+) \}\}"),
-        }
 
-    def render(self, template, context):
-        tokens = self.tokenize(template)
-        return self.parse(tokens, context)
+def render_simple_template(template_string, data):
+    """
+    Renders a simplified Jinja-like template.
 
-    def tokenize(self, template):
-        parts = re.split(r"(\{%.*?%\}|\{\{.*?\}\})", template)  # Split by tags
-        return [p.strip() for p in parts if p.strip()]  # Remove empty strings
+    Args:
+        template_string: The template string.
+        data: A dictionary containing the variables.
 
-    def parse(self, tokens, context):
-        output = ""
-        loop_vars = []  # Stack to track loop variables
-        conditional_stack = []  # Stack to track if conditions
+    Returns:
+        The rendered template string.
+    """
 
-        for token in tokens:
-            if token in self.tags and token == "{% endfor %}":
-                loop_vars.pop()  # Exit loop
-            elif token in self.tags and token == "{% endif %}":
-                conditional_stack.pop()
-            elif token in self.tags:
-                match = self.tags["for"].match(token)
-                if match:
-                    loop_var, iterable_name = match.groups()
-                    iterable = context.get(iterable_name)
+    def replace_variable(match):
+        variable_name = match.group(1).strip()
+        return str(data.get(variable_name, ""))
 
-                    if isinstance(iterable, list) or isinstance(iterable, tuple): #handles lists and tuples
-                        loop_vars.append((loop_var, iterable))  # Enter loop
-                        for item in iterable:
-                            context[loop_var] = item  # Set loop variable in context
-                            output += self.parse(tokens[tokens.index(token) + 1:tokens.index("{% endfor %}")], context)
-                            del context[loop_var] #cleanup
-                    else:
-                        raise ValueError(f"Iterable {iterable_name} must be a list or tuple")
+    def process_for_loop(match):
+        loop_content = match.group(0)
+        loop_parts = re.findall(r'{%\s*for\s+(\w+)\s+in\s+(\w+)\s*%}(.*?){%\s*endfor\s*%}', loop_content, re.DOTALL)
 
-                match = self.tags["if"].match(token)
-                if match:
-                    condition = match.group(1)
-                    try:
-                        result = eval(condition, {}, context) #evaluates the conditions
-                        conditional_stack.append(result)
-                        if result:
-                            output += self.parse(tokens[tokens.index(token) + 1:tokens.index("{% endif %}")], context)
-                    except Exception as e:
-                        raise ValueError(f"Invalid if condition: {condition}. Error: {e}")
-            else:
-                match = self.tags["variable"].match(token)
-                if match:
-                    variable_name = match.group(1)
-                    output += str(context.get(variable_name, ""))  # Resolve variable
-                else:
-                    output += token  # Text outside tags
+        if not loop_parts:
+            return loop_content  # return original content if no matches.
 
-        return output
+        variable_name, iterable_name, inner_content = loop_parts[0]
+        iterable = data.get(iterable_name, [])
+        if not isinstance(iterable, list):
+            return ""
 
-# Example usage:
-template = """
-<h1>Hello, {{ name }}!</h1>
+        result = ""
+        for item in iterable:
+            local_data = {**data, variable_name: item}  # Create local data with loop variable.
+            result += render_simple_template(inner_content, local_data)  # Recursive call.
+        return result
 
+    # Handle for loops first (important!)
+    while True:
+        loop_match = re.search(r'{%\s*for\s+\w+\s+in\s+\w+\s*%}.*?{%\s*endfor\s*%}', template_string, re.DOTALL)
+        if not loop_match:
+            break
+        template_string = template_string.replace(loop_match.group(0), process_for_loop(loop_match))
+
+    # Handle variable replacements
+    template_string = re.sub(r'{{(.*?)}}', replace_variable, template_string)
+
+    return template_string
+
+
+# Example Usage:
+
+template_list = """
 <ul>
 {% for item in items %}
-    <li>{{ item }}</li>
-{% endfor %}
-</ul>
-
-{% if show_message %}
-<p>This is a conditional message.</p>
-{% endif %}
-
-<ul>
-{% for user in users %}
-    <li>{{ user.name }} ({{ user.age }})</li>
-    <ul>
-    {% for hobby in user.hobbies %}
-        <li>{{ hobby }}</li>
-    {% endfor %}
-    </ul>
+  <li>{{ item }}</li>
 {% endfor %}
 </ul>
 """
 
-context = {
-    "name": "World",
-    "items": ["apple", "banana", "cherry"],
-    "show_message": True,
-    "users": [
-        {"name": "Alice", "age": 30, "hobbies": ["reading", "coding"]},
-        {"name": "Bob", "age": 25, "hobbies": ["hiking", "gaming"]},
-    ],
-}
+data_list = {"items": ["apple", "banana", "cherry"]}
+rendered_list = render_simple_template(template_list, data_list)
+print("List Example:")
+print(rendered_list)
 
-engine = TemplateEngine()
-rendered_html = engine.render(template, context)
-print(rendered_html)
+
+

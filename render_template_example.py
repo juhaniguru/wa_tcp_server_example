@@ -3,6 +3,8 @@ import threading
 
 import select
 
+import template_engine
+
 
 def render(_template):
     with open(_template, 'r', encoding='utf-8') as f:
@@ -143,16 +145,26 @@ def handle_request(method, path, headers, request):
             ]
             response_body = f"{render('./templates/users_list.html')}"
             response = "\r\n".join(response_headers) + "\r\n\r\n" + response_body
+        elif path == "/posts":
+            response_headers = [
+                "HTTP/1.1 200 OK",
+                "Content-Type: text/html; charset=utf-8",
+
+            ]
+            response_body = f"{render('./templates/posts.html')}"
+            t = template_engine.render_simple_template(response_body, {'items': ['Post 1', 'Post 2']})
+
+            response = "\r\n".join(response_headers) + "\r\n\r\n" + t
 
     if response is None:
-        response_body = f"<html><body>Page not found</body></html>"
+        response_body = f"<html><body>Page not re</body></html>"
         response = "\r\n".join(response_headers) + "\r\n\r\n" + response_body
-    print("########## response:", response)
+
     return response
 
 
 if __name__ == "__main__":
     HOST = "127.0.0.1"  # localhost
-    PORT = 8080
+    PORT = 8082
 
     start_server(HOST, PORT)
