@@ -1,6 +1,21 @@
 import socket
 import threading
 
+"""
+
+################### TEHTÄVÄ 1 ###########################################
+
+- Avaa selaimella osoite: localhost:8081
+    * avaa F12 selaimen developer konsoli
+    * huomaat, että consolessa on CORS-virhe
+    * lue teoriat headereista ja corsista
+
+    * tehtävä: sinun pitää saada virhe pois ja tiedot näkymään selaimeen
+    * tässä tiedostossa on noin rivillä 170 if-lohko, johon tarvittavat muutokset / muutos pitää tehdä
+    * kyse on tietystä headerista, jolla virheen voi korjata
+
+"""
+
 import select
 
 
@@ -155,8 +170,7 @@ def handle_request(method, path, headers, request):
         if path == "/users":
             response_headers = [
                 "HTTP/1.1 200 OK",
-                "Content-Type: text/html; charset=utf-8",
-                "Access-Control-Allow-Origin: *",
+                "Content-Type: text/html; charset=utf-8"
 
             ]
             response_body = f"{render('./templates/users_list.html')}"
