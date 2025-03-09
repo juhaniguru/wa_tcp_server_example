@@ -11,51 +11,61 @@ def render(_template):
 
 def handle_client(client_socket):
     try:
+        
         # mikä 1024? palvelimelle lähetetystä requestista luetaan vain kilotavu
         # oikeissa tapauksissa requestit ovat isompia kuin 1024 tavua,
         # mutta yksinkertaisuuden vuoksi tässä sillä ei ole väliä
-        request = client_socket.recv(1024).decode()
-        if request:
-            print(f"Received request")
-            # splitlines() hajoittaa requestin rivinvaihdoista (\n)
-            # ['eka rivi', 'toka rivi', 'kolmas rivi']
-            lines = request.splitlines()
-            # lines[0] on requestin eka rivi
-            # se voi näyttää tältä GET / HTTP/1.1
-            # split()-metodi hajoittaa rivin välilyönnistä
-            # joten 1. tulee metodi, 2. path ja 3. HTTP-protokollaversiolla ei ole väliä tässä esimerkissä
-            # koska serveri käyttää vain tcp:tä, eikä upd-protokolla vaihtoehtoa ole
-            method, path, _ = lines[0].split()
-            headers = {}
 
-            try:
+        ready_to_read, _, _ = select.select([client_socket], [], [], 1)  # Timeout of 1 second
+        if ready_to_read:
+            
+            request = client_socket.recv(1024).decode()
+            
+            if request:
+                print(f"Received request")
+                # splitlines() hajoittaa requestin rivinvaihdoista (\n)
+                # ['eka rivi', 'toka rivi', 'kolmas rivi']
+                lines = request.splitlines()
+                # lines[0] on requestin eka rivi
+                # se voi näyttää tältä GET / HTTP/1.1
+                # split()-metodi hajoittaa rivin välilyönnistä
+                # joten 1. tulee metodi, 2. path ja 3. HTTP-protokollaversiolla ei ole väliä tässä esimerkissä
+                # koska serveri käyttää vain tcp:tä, eikä upd-protokolla vaihtoehtoa ole
+                method, path, _ = lines[0].split()
+                headers = {}
 
-                # luetaan muut rivit, mutta hypätään eka yli
-                # koska se on jo käsitelty
-                # headerin startlinen jälkeen seuraavat rivit ovat http-protokollan standarissa
-                # headereita
-                for line in lines[1:]:
-                    if line:
-                        if line.strip() == "":
-                            break
-                        # hajoitetaan jokainen header avain-arvo -pareihin
-                        # esim: Content-Type:application/json
+                try:
 
-                        key, value = line.split(":", 1)
-                        # strip ottaa tyhjät merkit (whitespace) pois
-                        # ja jäljelle jää vain teksti
-                        headers[key.strip()] = value.strip()
-            except ValueError:
-                pass
+                    # luetaan muut rivit, mutta hypätään eka yli
+                    # koska se on jo käsitelty
+                    # headerin startlinen jälkeen seuraavat rivit ovat http-protokollan standarissa
+                    # headereita
+                    for line in lines[1:]:
+                        if line:
+                            if line.strip() == "":
+                                break
+                            # hajoitetaan jokainen header avain-arvo -pareihin
+                            # esim: Content-Type:application/json
 
-            # kun requestin osat on käsitelty
-            # kutsutaan funktiota, joka käsittelee reqeustin
-            # handle_request päättelee metodista, pathista, headerista ja reqeust-bodysta
-            # mikä response pitää palauttaa
-            response = handle_request(method, path, headers, request)
+                            key, value = line.split(":", 1)
+                            # strip ottaa tyhjät merkit (whitespace) pois
+                            # ja jäljelle jää vain teksti
+                            headers[key.strip()] = value.strip()
+                except ValueError as e:
+                    
+                    pass
 
-            # läheteään response clientille takaisin
-            client_socket.sendall(response.encode())
+                # kun requestin osat on käsitelty
+                # kutsutaan funktiota, joka käsittelee reqeustin
+                # handle_request päättelee metodista, pathista, headerista ja reqeust-bodysta
+                # mikä response pitää palauttaa
+                response = handle_request(method, path, headers, request)
+
+                # läheteään response clientille takaisin
+                client_socket.sendall(response.encode())
+            else:
+                print("ei ole requestia")
+                client_socket.close()
 
     except Exception as e:
         print(f"Error handling client: {e}")
@@ -89,6 +99,7 @@ def start_server(host, port):
     server_socket.listen(5)
 
     print(f"Server listening on {host}:{port}")
+    client_socket = None
     try:
         # pyöritetään ikiluuppia, jotta serveri pysyy päällä
         while True:
@@ -106,8 +117,10 @@ def start_server(host, port):
                     # jokaiselle clientille käynnistetään oma thread (säie),
                     # jotta serveri pystyy käsittelemään useamman pyynnön yhtä aikaa
 
+                    
                     client_thread = threading.Thread(target=handle_client, args=(client_socket,))
                     client_thread.start()
+                    
 
 
 
@@ -120,10 +133,14 @@ def start_server(host, port):
     except KeyboardInterrupt:
         print("# CTRL+C detected. Shutting down. #")
     finally:
+        print("######### olen taalla")
         server_socket.close()
+        if client_socket is not None:
+            client_socket.close()
 
 
 def handle_request(method, path, headers, request):
+    print("######### handle request")
     response_headers = [
         "HTTP/1.1 404 NOT FOUND",
         "Content-Type: text/html"
@@ -139,6 +156,7 @@ def handle_request(method, path, headers, request):
             response_headers = [
                 "HTTP/1.1 200 OK",
                 "Content-Type: text/html; charset=utf-8",
+                "Access-Control-Allow-Origin: *",
 
             ]
             response_body = f"{render('./templates/users_list.html')}"
@@ -147,7 +165,9 @@ def handle_request(method, path, headers, request):
     if response is None:
         response_body = f"<html><body>Page not found</body></html>"
         response = "\r\n".join(response_headers) + "\r\n\r\n" + response_body
-    print("########## response:", response)
+    
+    print("############ response", response)
+    
     return response
 
 
